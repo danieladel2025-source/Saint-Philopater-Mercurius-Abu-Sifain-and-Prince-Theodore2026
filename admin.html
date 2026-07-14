@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>لوحة تحكم المشرفين — كنيسة أبي سيفين والأمير تادرس</title>
+
+<!-- ===== PWA: Manifest ===== -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0d1117">
+<meta name="background-color" content="#0d1117">
+
+<!-- ===== PWA: أيقونات ===== -->
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-192.png">
+
+<!-- ===== PWA: دعم آيفون/آيباد (Safari) ===== -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="لوحة تحكم الكنيسة">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --ink: #0d1117;
+    --paper: #f5f0e8;
+    --cream: #ede8dc;
+    --accent: #c8392b;
+    --accent2: #2980b9;
+    --gold: #d4a017;
+    --green: #1a7a4a;
+    --line: #b5a98a;
+    --shadow: rgba(13,17,23,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Cairo', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height:100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 38px, var(--line) 38px, var(--line) 39px),
+      repeating-linear-gradient(90deg, transparent, transparent 38px, rgba(181,169,138,0.15) 38px, rgba(181,169,138,0.15) 39px);
+  }
+  .header {
+    background: var(--ink); color: var(--paper);
+    padding: 18px 28px; display:flex; align-items:center; justify-content:space-between;
+    box-shadow: 0 4px 20px var(--shadow); position: sticky; top:0; z-index:100; flex-wrap:wrap; gap:12px;
+  }
+  .header-brand { display:flex; align-items:center; gap:14px; }
+  .header-icon { width:46px; height:46px; background:var(--accent); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .header h1 { font-size:19px; font-weight:900; }
+  .header-subtitle { font-size:12px; color:var(--line); margin-top:2px; }
+  .btn {
+    font-family:'Cairo',sans-serif; font-weight:700; font-size:13px; border:none; border-radius:9px;
+    padding:9px 16px; cursor:pointer; transition:.2s; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-accent { background:var(--accent); color:white; } .btn-accent:hover { background:#a92e22; }
+  .btn-ghost { background:rgba(255,255,255,0.12); color:var(--paper); border:1px solid rgba(255,255,255,0.3); }
+  .btn-ghost:hover { background:rgba(255,255,255,0.2); }
+  .btn-outline { background:white; color:var(--ink); border:1px solid var(--line); }
+  .btn-outline:hover { background:var(--cream); }
+  .btn-green { background:var(--green); color:white; } .btn-green:hover { background:#145f3a; }
+  .btn-danger { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; } .btn-danger:hover { background:#fecaca; }
+  .btn:disabled { opacity:.55; cursor:not-allowed; }
+
+  .main { max-width:1100px; margin:0 auto; padding:24px 20px 60px; }
+
+  /* ===== شاشة الدخول ===== */
+  .login-wrap { min-height:calc(100vh - 90px); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-card {
+    background:white; border:1px solid var(--cream); border-top:5px solid var(--accent);
+    border-radius:14px; padding:36px 30px; width:100%; max-width:380px; box-shadow:0 8px 28px var(--shadow); text-align:center;
+  }
+  .login-card .icon { font-size:40px; margin-bottom:8px; }
+  .login-card h2 { font-size:19px; font-weight:900; margin-bottom:6px; }
+  .login-card p { font-size:13px; color:#777; margin-bottom:22px; }
+  .field { text-align:right; margin-bottom:14px; }
+  .field label { display:block; font-size:12px; font-weight:700; color:#555; margin-bottom:6px; }
+  .field input {
+    width:100%; padding:11px 14px; border:2px solid var(--cream); border-radius:9px; font-family:'Cairo',sans-serif;
+    font-size:14px; outline:none; transition:.2s; background:#fdfdfd;
+  }
+  .field input:focus { border-color:var(--accent2); }
+  .err-msg { color:var(--accent); font-size:12.5px; font-weight:700; margin:8px 0; display:none; text-align:right; }
+
+  /* ===== لوحة التحكم ===== */
+  .stats-bar { display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap; }
+  .stat-card {
+    flex:1; min-width:130px; background:white; border:1px solid var(--cream); border-radius:12px; padding:14px;
+    text-align:center; box-shadow:0 4px 12px var(--shadow); border-top:4px solid var(--accent2);
+  }
+  .stat-card .stat-val { font-size:24px; font-weight:900; color:var(--accent2); }
+  .stat-card .stat-lbl { font-size:12px; font-weight:700; color:#666; margin-top:4px; }
+
+  .panel { background:white; border:1px solid var(--cream); border-radius:14px; box-shadow:0 4px 16px var(--shadow); overflow:hidden; margin-bottom:24px; }
+  .panel-head { padding:16px 20px; border-bottom:1px solid var(--cream); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  .panel-head h3 { font-size:16px; font-weight:900; }
+
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  thead th { background:var(--cream); color:var(--ink); padding:10px 12px; text-align:right; font-size:12.5px; font-weight:800; white-space:nowrap; }
+  tbody td { padding:10px 12px; border-bottom:1px solid #f1ede4; vertical-align:middle; }
+  tbody tr:hover { background:#fafafa; }
+  .chapter-icon-cell { font-size:20px; }
+  .chapter-name-cell { font-weight:800; }
+  .chapter-id-cell { font-size:11px; color:#999; font-family:monospace; }
+  .actions-cell { display:flex; gap:6px; flex-wrap:wrap; }
+  .empty-state { text-align:center; padding:50px 20px; color:#999; }
+  .empty-state .e-icon { font-size:36px; margin-bottom:8px; }
+  .loading-state { text-align:center; padding:40px; color:#888; font-weight:700; }
+
+  /* ===== نافذة منبثقة ===== */
+  .overlay {
+    position:fixed; inset:0; background:rgba(13,17,23,0.55); display:none; align-items:center; justify-content:center;
+    z-index:1000; padding:16px;
+  }
+  .overlay.active { display:flex; }
+  .modal { background:var(--paper); border-radius:14px; width:100%; max-width:520px; max-height:88vh; overflow-y:auto;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3); border-top:5px solid var(--accent2); }
+  .modal-head { padding:18px 22px; border-bottom:1px solid var(--cream); display:flex; align-items:center; justify-content:space-between; }
+  .modal-head h3 { font-size:16px; font-weight:900; }
+  .modal-close { background:none; border:none; font-size:20px; cursor:pointer; color:#888; }
+  .modal-body { padding:20px 22px; }
+  .modal-foot { padding:14px 22px 20px; display:flex; gap:10px; justify-content:flex-start; flex-wrap:wrap; }
+  .hint { font-size:11.5px; color:#888; margin-top:4px; }
+  .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #eee; font-size:13.5px; }
+  .detail-row b { font-weight:800; }
+  .mini-list { max-height:220px; overflow-y:auto; margin-top:10px; border:1px solid #eee; border-radius:8px; }
+  .mini-list div { padding:7px 10px; font-size:12.5px; border-bottom:1px dashed #f2f2f2; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .mini-list .person-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mini-btn {
+    background:var(--accent2); color:white; border:none; border-radius:6px; padding:4px 9px; font-size:11px;
+    font-family:'Cairo',sans-serif; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  .mini-btn:hover { background:#1f6493; }
+  .att-summary { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; }
+  .att-chip { flex:1; min-width:80px; text-align:center; border-radius:10px; padding:10px 6px; font-weight:800; }
+  .att-chip .n { font-size:19px; }
+  .att-chip .l { font-size:11px; font-weight:700; margin-top:2px; }
+  .att-chip.present { background:#dcfce7; color:#166534; }
+  .att-chip.absent  { background:#fee2e2; color:#991b1b; }
+  .att-chip.late    { background:#fff3cd; color:#856404; }
+  .att-chip.total   { background:var(--cream); color:var(--ink); }
+  .att-table-wrap { max-height:320px; overflow-y:auto; border:1px solid #eee; border-radius:8px; }
+  .att-table-wrap table { font-size:12.5px; }
+  .att-table-wrap thead th { position:sticky; top:0; }
+  .status-badge { border-radius:14px; padding:3px 10px; font-size:11px; font-weight:800; display:inline-block; }
+  .status-badge.present { background:#dcfce7; color:#166534; }
+  .status-badge.absent  { background:#fee2e2; color:#991b1b; }
+  .status-badge.late    { background:#fff3cd; color:#856404; }
+  .back-link { background:none; border:none; color:var(--accent2); font-weight:700; font-size:13px; cursor:pointer; margin-bottom:10px; display:inline-flex; align-items:center; gap:4px; padding:0; }
+  .toast {
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:12px 22px;
+    border-radius:10px; font-weight:700; font-size:14px; z-index:9999; box-shadow:0 6px 18px rgba(0,0,0,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <div class="header-icon">🛡️</div>
+    <div>
+      <h1>لوحة تحكم المشرفين</h1>
+      <div class="header-subtitle">إدارة فصول نظام تسجيل الغياب — كنيسة أبي سيفين والأمير تادرس</div>
+    </div>
+  </div>
+  <div id="headerActions" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+</div>
+
+<div class="main" id="mainArea"></div>
+
+<script>
+const SUPABASE_URL      = 'https://edcgyqjamruyqobnrhwm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkY2d5cWphbXJ1eXFvYm5yaHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMTU5NDgsImV4cCI6MjA5OTU5MTk0OH0.gjI3QyB3oEnrFNF218DuqKdQvZyQuADpgLlEl06NraI';
+let sb = null;
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) { console.error(e); }
+
+const SESSION_KEY = 'admin_session_v1';
+let currentAdmin = null;
+let chaptersCache = [];
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ================= تسجيل الدخول ================= */
+function renderLogin(errMsg) {
+  document.getElementById('headerActions').innerHTML = '';
+  document.getElementById('mainArea').innerHTML = `
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="icon">🛡️</div>
+        <h2>دخول المشرفين</h2>
+        <p>هذه اللوحة مخصّصة للمشرفين فقط لإدارة الفصول</p>
+        <div class="field">
+          <label>اسم المستخدم</label>
+          <input type="text" id="loginUser" placeholder="admin" autocomplete="username">
+        </div>
+        <div class="field">
+          <label>كلمة السر</label>
+          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="err-msg" id="loginErr">${errMsg ? esc(errMsg) : ''}</div>
+        <button class="btn btn-accent" style="width:100%;justify-content:center;padding:12px;" onclick="doLogin()">دخول</button>
+      </div>
+    </div>`;
+  if (errMsg) document.getElementById('loginErr').style.display = 'block';
+  document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginErr');
+  if (!user || !pass) { errEl.textContent = 'برجاء إدخال اسم المستخدم وكلمة السر'; errEl.style.display = 'block'; return; }
+  if (!sb) { errEl.textContent = '⚠️ تعذر الاتصال بقاعدة البيانات'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  try {
+    const { data, error } = await sb.rpc('verify_admin_login', { p_username: user, p_password: pass });
+    if (error) throw error;
+    if (!data) { errEl.textContent = '❌ اسم المستخدم أو كلمة السر غير صحيحة'; errEl.style.display = 'block'; return; }
+    currentAdmin = user;
+    try { sessionStorage.setItem(SESSION_KEY, user); } catch(e) {}
+    renderDashboard();
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠️ تعذر الاتصال بقاعدة البيانات — تحقق من الإنترنت'; errEl.style.display = 'block';
+  }
+}
+
+function logout() {
+  currentAdmin = null;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+  renderLogin();
+}
+
+/* ================= لوحة التحكم ================= */
+async function renderDashboard() {
+  document.getElementById('headerActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="openChangePassModal()">🔑 تغيير كلمة السر</button>
+    <button class="btn btn-ghost" onclick="logout()">🚪 خروج</button>`;
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>📂 قائمة الفصول</h3>
+        <button class="btn btn-outline" onclick="loadChapters()">🔄 تحديث</button>
+      </div>
+      <div id="chaptersWrap" class="loading-state">⏳ جاري تحميل الفصول...</div>
+    </div>`;
+  await loadChapters();
+}
+
+async function loadChapters() {
+  const wrap = document.getElementById('chaptersWrap');
+  wrap.innerHTML = '<div class="loading-state">⏳ جاري تحميل الفصول...</div>';
+  if (!sb) { wrap.innerHTML = '<div class="empty-state">⚠️ تعذر الاتصال بقاعدة البيانات</div>'; return; }
+  try {
+    const { data, error } = await sb.rpc('admin_list_chapters');
+    if (error) throw error;
+    chaptersCache = data || [];
+    renderStats();
+    renderChaptersTable();
+  } catch(e) {
+    console.error(e);
+    wrap.innerHTML = '<div class="empty-state">⚠️ تعذر تحميل الفصول — تحقق من الاتصال</div>';
+  }
+}
+
+function renderStats() {
+  const totalChapters = chaptersCache.length;
+  const totalStudents = chaptersCache.reduce((s,c)=>s+(c.student_count||0),0);
+  const totalServants  = chaptersCache.reduce((s,c)=>s+(c.servant_count||0),0);
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${totalChapters}</div><div class="stat-lbl">عدد الفصول</div></div>
+    <div class="stat-card"><div class="stat-val">${totalStudents}</div><div class="stat-lbl">إجمالي المخدومين</div></div>
+    <div class="stat-card"><div class="stat-val">${totalServants}</div><div class="stat-lbl">إجمالي الخدام</div></div>`;
+}
+
+function renderChaptersTable() {
+  const wrap = document.getElementById('chaptersWrap');
+  if (!chaptersCache.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="e-icon">📭</div>لا توجد فصول بعد</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th></th><th>اسم الفصل</th><th>عدد المخدومين</th><th>عدد الخدام</th><th>آخر تحديث</th><th>الإجراءات</th>
+      </tr></thead>
+      <tbody>
+        ${chaptersCache.map(c => `
+          <tr>
+            <td class="chapter-icon-cell">${esc(c.icon || '⛪')}</td>
+            <td>
+              <div class="chapter-name-cell">${esc(c.chapter_name)}</div>
+              <div class="chapter-id-cell">${esc(c.chapter_id)}</div>
+            </td>
+            <td>${c.student_count ?? 0}</td>
+            <td>${c.servant_count ?? 0}</td>
+            <td>${c.updated_at ? new Date(c.updated_at).toLocaleString('ar-EG') : '—'}</td>
+            <td class="actions-cell">
+              <button class="btn btn-outline" onclick="openDetailsModal('${esc(c.chapter_id)}')">👁️ تفاصيل</button>
+              <button class="btn btn-green" onclick="openEditModal('${esc(c.chapter_id)}')">✏️ تعديل</button>
+              <button class="btn btn-danger" onclick="openDeleteModal('${esc(c.chapter_id)}')">🗑️ حذف</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+/* ================= نافذة التفاصيل ================= */
+let currentChapterDetail = null; // يخزن بيانات الفصل المفتوح حالياً (لعرض الحضور والغياب بدون إعادة تحميل)
+
+async function openDetailsModal(chapterId) {
+  showModal('📄 تفاصيل الفصل', '<div class="loading-state">⏳ جاري التحميل...</div>', []);
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.rpc('admin_get_chapter', { p_chapter_id: chapterId });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) { updateModalBody('<div class="empty-state">لم يتم العثور على الفصل</div>'); return; }
+    currentChapterDetail = row;
+    renderChapterDetailBody();
+  } catch(e) {
+    console.error(e);
+    updateModalBody('<div class="empty-state">⚠️ تعذر تحميل التفاصيل</div>');
+  }
+}
+
+function renderChapterDetailBody() {
+  const row = currentChapterDetail;
+  if (!row) return;
+  const d = row.data || {};
+  const students = Array.isArray(d.students) ? d.students : [];
+  const servants  = Array.isArray(d.servants)  ? d.servants  : [];
+  let body = `
+    <div class="detail-row"><span>اسم الفصل</span><b>${esc(row.chapter_name)}</b></div>
+    <div class="detail-row"><span>الأيقونة</span><b>${esc(row.icon || '⛪')}</b></div>
+    <div class="detail-row"><span>معرّف الفصل</span><b style="font-size:11px;font-family:monospace;">${esc(row.chapter_id)}</b></div>
+    <div class="detail-row"><span>تاريخ الإنشاء</span><b>${row.created_at ? new Date(row.created_at).toLocaleString('ar-EG') : '—'}</b></div>
+    <div class="detail-row"><span>آخر تحديث</span><b>${row.updated_at ? new Date(row.updated_at).toLocaleString('ar-EG') : '—'}</b></div>
+    <div class="detail-row"><span>عدد المخدومين</span><b>${students.length}</b></div>
+    <div class="detail-row"><span>عدد الخدام</span><b>${servants.length}</b></div>`;
+  if (students.length) {
+    body += `<div style="margin-top:14px;font-weight:800;font-size:13px;">👦 المخدومين — اضغط "الغياب" لعرض سجل الحضور والغياب</div>
+      <div class="mini-list">${students.map(s => `
+        <div>
+          <span class="person-name">${esc(s.name||'—')}</span>
+          <span style="color:#888;">${esc(s.phone||s.ownPhone||'')}</span>
+          <button class="mini-btn" onclick="openAttendanceView('student','${esc(s.id)}')">📊 الغياب</button>
+        </div>`).join('')}</div>`;
+  }
+  if (servants.length) {
+    body += `<div style="margin-top:14px;font-weight:800;font-size:13px;">🧑‍🏫 الخدام — اضغط "الغياب" لعرض سجل الحضور والغياب</div>
+      <div class="mini-list">${servants.map(sv => `
+        <div>
+          <span class="person-name">${esc(sv.name||'—')}</span>
+          <span style="color:#888;">${esc(sv.phone||'')}</span>
+          <button class="mini-btn" onclick="openAttendanceView('servant','${esc(sv.sid)}')">📊 الغياب</button>
+        </div>`).join('')}</div>`;
+  }
+  updateModalBody(body);
+}
+
+/* ================= عرض حضور/غياب فرد معيّن ================= */
+function openAttendanceView(kind, personId) {
+  const row = currentChapterDetail;
+  if (!row) return;
+  const d = row.data || {};
+  const isStudent = kind === 'student';
+  const people = isStudent ? (d.students || []) : (d.servants || []);
+  const person = people.find(p => String(isStudent ? p.id : p.sid) === String(personId));
+  if (!person) { showToast('⚠️ تعذر العثور على الشخص'); return; }
+
+  const attMap = isStudent ? (d.attendance || {}) : (d.servantsAttendance || {});
+  // نجمع كل التواريخ التي سُجّل فيها حالة لهذا الشخص فقط
+  const rows = Object.keys(attMap)
+    .filter(date => attMap[date] && attMap[date][personId] !== undefined)
+    .map(date => ({ date, status: attMap[date][personId] }))
+    .sort((a,b) => b.date.localeCompare(a.date)); // الأحدث أولاً
+
+  const present = rows.filter(r => r.status === 'present').length;
+  const absent  = rows.filter(r => r.status === 'absent').length;
+  const late    = rows.filter(r => r.status === 'late').length;
+  const total   = rows.length;
+  const pct     = total ? Math.round((present / total) * 100) : 0;
+
+  const statusLabel = { present: '✅ حاضر', absent: '❌ غائب', late: '⏰ متأخر' };
+  const statusClass  = { present: 'present', absent: 'absent', late: 'late' };
+
+  let body = `
+    <button class="back-link" onclick="renderChapterDetailBody()">→ رجوع لتفاصيل الفصل</button>
+    <div class="detail-row"><span>الاسم</span><b>${esc(person.name || '—')}</b></div>
+    <div class="detail-row"><span>رقم الهاتف</span><b>${esc(person.phone || person.ownPhone || '—')}</b></div>
+    <div class="detail-row"><span>نسبة الحضور</span><b>${pct}%</b></div>
+    <div class="att-summary">
+      <div class="att-chip total"><div class="n">${total}</div><div class="l">إجمالي الأيام المسجّلة</div></div>
+      <div class="att-chip present"><div class="n">${present}</div><div class="l">حاضر</div></div>
+      <div class="att-chip absent"><div class="n">${absent}</div><div class="l">غائب</div></div>
+      <div class="att-chip late"><div class="n">${late}</div><div class="l">متأخر</div></div>
+    </div>`;
+
+  if (!total) {
+    body += `<div class="empty-state">لا يوجد سجل غياب مسجّل لهذا الشخص بعد</div>`;
+  } else {
+    body += `<div class="att-table-wrap"><table>
+      <thead><tr><th>التاريخ</th><th>الحالة</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr><td>${esc(r.date)}</td><td><span class="status-badge ${statusClass[r.status]||''}">${statusLabel[r.status] || esc(r.status)}</span></td></tr>
+      `).join('')}</tbody>
+    </table></div>`;
+  }
+
+  document.querySelector('#modalOverlay .modal-head h3').textContent = `📊 سجل ${isStudent ? 'المخدوم' : 'الخادم'}: ${esc(person.name || '')}`;
+  updateModalBody(body);
+}
+
+/* ================= نافذة التعديل ================= */
+function openEditModal(chapterId) {
+  const c = chaptersCache.find(x => x.chapter_id === chapterId);
+  if (!c) return;
+  const body = `
+    <div class="field"><label>اسم الفصل</label><input id="editName" type="text" value="${esc(c.chapter_name)}"></div>
+    <div class="field"><label>الأيقونة (إيموجي)</label><input id="editIcon" type="text" value="${esc(c.icon || '⛪')}" maxlength="4"></div>
+    <div class="field"><label>كلمة سر جديدة للفصل</label><input id="editPass" type="text" placeholder="اتركها فارغة لعدم التغيير"></div>
+    <div class="err-msg" id="editErr"></div>`;
+  showModal('✏️ تعديل الفصل', body, [
+    { label: '💾 حفظ التعديلات', cls: 'btn-accent', onclick: `submitEdit('${esc(chapterId)}')` },
+    { label: 'إلغاء', cls: 'btn-outline', onclick: 'closeModal()' }
+  ]);
+}
+
+async function submitEdit(chapterId) {
+  const name = document.getElementById('editName').value.trim();
+  const icon = document.getElementById('editIcon').value.trim() || '⛪';
+  const pass = document.getElementById('editPass').value;
+  const errEl = document.getElementById('editErr');
+  if (!name) { errEl.textContent = 'برجاء إدخال اسم الفصل'; errEl.style.display = 'block'; return; }
+  try {
+    const { data, error } = await sb.rpc('admin_update_chapter', {
+      p_chapter_id: chapterId, p_new_name: name, p_icon: icon, p_new_password: pass || null
+    });
+    if (error) throw error;
+    if (!data) { errEl.textContent = '⚠️ تعذر العثور على الفصل'; errEl.style.display = 'block'; return; }
+    closeModal();
+    showToast('✅ تم تحديث الفصل بنجاح');
+    await loadChapters();
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠️ تعذر حفظ التعديلات'; errEl.style.display = 'block';
+  }
+}
+
+/* ================= نافذة الحذف ================= */
+function openDeleteModal(chapterId) {
+  const c = chaptersCache.find(x => x.chapter_id === chapterId);
+  if (!c) return;
+  const body = `
+    <p style="font-size:14px;line-height:1.8;">
+      سيتم حذف فصل <b>"${esc(c.chapter_name)}"</b> وكل بياناته (المخدومين، الخدام، سجلات الغياب) نهائياً.
+      هذا الإجراء <b style="color:var(--accent);">لا يمكن التراجع عنه</b>.
+    </p>
+    <div class="field" style="margin-top:16px;">
+      <label>اكتب اسم الفصل للتأكيد: <b>${esc(c.chapter_name)}</b></label>
+      <input id="deleteConfirmInput" type="text" placeholder="اكتب اسم الفصل هنا">
+    </div>
+    <div class="err-msg" id="deleteErr"></div>`;
+  showModal('🗑️ حذف الفصل', body, [
+    { label: '🗑️ تأكيد الحذف نهائياً', cls: 'btn-danger', onclick: `submitDelete('${esc(chapterId)}')` },
+    { label: 'إلغاء', cls: 'btn-outline', onclick: 'closeModal()' }
+  ]);
+}
+
+async function submitDelete(chapterId) {
+  const c = chaptersCache.find(x => x.chapter_id === chapterId);
+  const typed = document.getElementById('deleteConfirmInput').value.trim();
+  const errEl = document.getElementById('deleteErr');
+  if (!c || typed !== c.chapter_name) {
+    errEl.textContent = '❌ الاسم المكتوب غير مطابق لاسم الفصل'; errEl.style.display = 'block'; return;
+  }
+  try {
+    const { data, error } = await sb.rpc('admin_delete_chapter', { p_chapter_id: chapterId });
+    if (error) throw error;
+    if (!data) { errEl.textContent = '⚠️ تعذر العثور على الفصل'; errEl.style.display = 'block'; return; }
+    closeModal();
+    showToast('🗑️ تم حذف الفصل بنجاح');
+    await loadChapters();
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠️ تعذر حذف الفصل'; errEl.style.display = 'block';
+  }
+}
+
+/* ================= تغيير كلمة سر المشرف ================= */
+function openChangePassModal() {
+  const body = `
+    <div class="field"><label>كلمة السر الحالية</label><input id="oldPass" type="password"></div>
+    <div class="field"><label>كلمة السر الجديدة</label><input id="newPass" type="password"></div>
+    <div class="field"><label>تأكيد كلمة السر الجديدة</label><input id="newPass2" type="password"></div>
+    <div class="err-msg" id="passErr"></div>`;
+  showModal('🔑 تغيير كلمة السر', body, [
+    { label: '💾 حفظ', cls: 'btn-accent', onclick: 'submitChangePass()' },
+    { label: 'إلغاء', cls: 'btn-outline', onclick: 'closeModal()' }
+  ]);
+}
+
+async function submitChangePass() {
+  const oldP = document.getElementById('oldPass').value;
+  const newP = document.getElementById('newPass').value;
+  const newP2 = document.getElementById('newPass2').value;
+  const errEl = document.getElementById('passErr');
+  if (!oldP || !newP) { errEl.textContent = 'برجاء ملء كل الحقول'; errEl.style.display = 'block'; return; }
+  if (newP.length < 6) { errEl.textContent = 'كلمة السر الجديدة يجب أن تكون 6 أحرف على الأقل'; errEl.style.display = 'block'; return; }
+  if (newP !== newP2) { errEl.textContent = 'كلمة السر الجديدة غير متطابقة'; errEl.style.display = 'block'; return; }
+  try {
+    const { data, error } = await sb.rpc('admin_change_password', { p_username: currentAdmin, p_old_password: oldP, p_new_password: newP });
+    if (error) throw error;
+    if (!data) { errEl.textContent = '❌ كلمة السر الحالية غير صحيحة'; errEl.style.display = 'block'; return; }
+    closeModal();
+    showToast('✅ تم تغيير كلمة السر بنجاح');
+  } catch(e) {
+    console.error(e);
+    errEl.textContent = '⚠️ تعذر تغيير كلمة السر'; errEl.style.display = 'block';
+  }
+}
+
+/* ================= أدوات النوافذ المنبثقة ================= */
+function showModal(title, bodyHtml, buttons) {
+  let ov = document.getElementById('modalOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'modalOverlay';
+    ov.className = 'overlay';
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="modal">
+      <div class="modal-head"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body" id="modalBody">${bodyHtml}</div>
+      <div class="modal-foot">${buttons.map(b => `<button class="btn ${b.cls}" onclick="${b.onclick}">${b.label}</button>`).join('')}</div>
+    </div>`;
+  ov.classList.add('active');
+}
+function updateModalBody(html) { const el = document.getElementById('modalBody'); if (el) el.innerHTML = html; }
+function closeModal() { const ov = document.getElementById('modalOverlay'); if (ov) ov.classList.remove('active'); }
+
+/* ================= بدء التشغيل ================= */
+(function init() {
+  let saved = null;
+  try { saved = sessionStorage.getItem(SESSION_KEY); } catch(e) {}
+  if (saved) { currentAdmin = saved; renderDashboard(); }
+  else { renderLogin(); }
+})();
+
+// ===== PWA: تسجيل Service Worker الحقيقي (للتثبيت والعمل بدون اتصال) =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => console.log('PWA Service Worker مسجل بنجاح:', reg.scope))
+      .catch(err => console.warn('فشل تسجيل PWA Service Worker:', err));
+  });
+}
+</script>
+</body>
+</html>
