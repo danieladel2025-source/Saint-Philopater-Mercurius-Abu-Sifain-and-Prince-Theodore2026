@@ -11,6 +11,8 @@
 //    getRooms: () => [{ id, label }],       // قائمة الغرف المتاحة الآن (فارغة = إخفاء الشات)
 //    getIdentity: () => ({ name }),         // للمشرف فقط
 //    getNameSuggestions: () => ['..'],      // للخدام: اقتراحات الأسماء
+//    getClassName: () => 'اسم الفصل',       // للخدام: يظهر بجوار الاسم في كل الغرف
+//    getRole: (name) => 'أمين الخدمة',       // للخدام: صفة الخادم من قائمة الخدام (بمطابقة الاسم)
 //    watchAll: false                        // للمشرف: اشتراك واحد في كل الغرف
 //  })
 // =====================================================================
@@ -54,7 +56,27 @@
     }
     return (localStorage.getItem('lc_name') || '').trim();
   }
-  function isMine(m) { return m.role === cfg.role && m.sender === myName(); }
+  // الاسم والفصل يُخزَّنان معاً في عمود sender بالشكل: الاسم ‖ الفصل (بدون الحاجة لتعديل قاعدة البيانات)
+  var SEP = ' ‖ ';
+  function parseSender(raw) {
+    var parts = String(raw == null ? '' : raw).split(SEP);
+    return { name: parts[0] || '', cls: parts[1] || '', role: parts[2] || '' };
+  }
+  function myClass() {
+    if (cfg.role === 'admin') return '';
+    try { return String((cfg.getClassName && cfg.getClassName()) || '').trim(); } catch (e) { return ''; }
+  }
+  // صفة الخادم (أمين خدمة / أمين مساعد / خادم ...) تُؤخذ من قائمة الخدام بمطابقة الاسم
+  function myRole() {
+    if (cfg.role === 'admin') return '';
+    try { return String((cfg.getRole && cfg.getRole(myName())) || '').trim(); } catch (e) { return ''; }
+  }
+  function senderValue() {
+    var n = myName().slice(0, 40), c = myClass(), r = myRole();
+    if (!c && !r) return n;
+    return n + SEP + c.slice(0, 40) + (r ? SEP + r.slice(0, 30) : '');
+  }
+  function isMine(m) { return m.role === cfg.role && parseSender(m.sender).name === myName(); }
 
   function getSeen(room) {
     if (seen[room] != null) return seen[room];
@@ -87,13 +109,13 @@
     st.id = 'lcStyles';
     st.textContent =
       '.lc-fab,.lc-panel,.lc-panel *{box-sizing:border-box;font-family:Cairo,Tahoma,sans-serif}' +
-      '.lc-fab{position:fixed;left:16px;bottom:16px;z-index:9000;width:56px;height:56px;border-radius:50%;border:none;background:#0d1117;color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;border:2px solid #d4a017;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}' +
-      '.lc-fab.lc-snap{transition:left .25s cubic-bezier(.2,.8,.2,1),top .25s cubic-bezier(.2,.8,.2,1)}' +
-      '.lc-fab.lc-dragging{cursor:grabbing;transform:scale(1.08);box-shadow:0 10px 28px rgba(0,0,0,.45)}' +
+      '.lc-fab{position:fixed;left:16px;bottom:16px;touch-action:none;user-select:none;-webkit-user-select:none;z-index:9000;width:56px;height:56px;border-radius:50%;border:none;background:#0d1117;color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;border:2px solid #d4a017}' +
       '.lc-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#c8392b;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}' +
-      '.lc-panel{position:fixed;left:16px;bottom:84px;z-index:9001;width:380px;max-width:calc(100vw - 24px);height:540px;max-height:calc(100vh - 110px);background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;direction:rtl;border:1px solid #e5dfd0}' +
+      '.lc-panel{position:fixed;left:16px;bottom:84px;z-index:9001;width:380px;max-width:calc(100vw - 16px);height:540px;max-height:calc(100vh - 24px);background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;direction:rtl;border:1px solid #e5dfd0}' +
       '.lc-panel[hidden],.lc-badge[hidden],.lc-namebox[hidden],.lc-note[hidden]{display:none!important}' +
-      '.lc-head{background:#0d1117;color:#fff;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}' +
+      '.lc-head{background:#0d1117;color:#fff;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}' +
+      '.lc-head.drag{cursor:grabbing}' +
+      '.lc-grip{opacity:.5;font-size:14px;letter-spacing:-2px;margin-inline-end:4px}' +
       '.lc-title{font-weight:900;font-size:15px;display:flex;flex-direction:column;line-height:1.3}' +
       '.lc-conn{font-size:11px;font-weight:600;opacity:.85}' +
       '.lc-iconbtn{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer;margin-inline-start:4px}' +
@@ -111,6 +133,8 @@
       '.lc-row:not(.mine) .lc-bubble{border-bottom-left-radius:4px}' +
       '.lc-bubble.admin{border-color:#d4a017;background:#fff9e6}' +
       '.lc-sender{font-size:12px;font-weight:800;color:#2980b9;margin-bottom:2px}' +
+      '.lc-cls{display:inline-block;background:#eef3f8;color:#456;border-radius:8px;padding:0 7px;margin-inline-start:6px;font-size:11px;font-weight:700}' +
+      '.lc-role{display:inline-block;background:#f3e8ff;color:#5b21b6;border-radius:8px;padding:0 7px;margin-inline-start:6px;font-size:11px;font-weight:800}' +
       '.lc-bubble.admin .lc-sender{color:#9a6b00}' +
       '.lc-text{font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#0d1117}' +
       '.lc-time{font-size:10px;color:#888;margin-top:2px;text-align:left}' +
@@ -128,106 +152,8 @@
       '.lc-namebox button{border:none;background:#0d1117;color:#fff;border-radius:10px;padding:10px;font-size:14px;font-weight:800;cursor:pointer}' +
       '.lc-toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-120px);z-index:10050;background:#0d1117;color:#fff;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:700;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.35);transition:transform .25s;direction:rtl;font-family:Cairo,Tahoma,sans-serif;cursor:pointer}' +
       '.lc-toast.show{transform:translateX(-50%) translateY(0)}' +
-      '@media (max-width:600px){.lc-panel{left:0;right:0;bottom:0;width:100%;max-width:100%;height:88vh;height:88dvh;max-height:none;border-radius:16px 16px 0 0}}';
+      '@media (max-width:600px){.lc-panel{width:calc(100vw - 16px);height:75vh;height:75dvh;border-radius:16px}}';
     document.head.appendChild(st);
-  }
-
-  // ---------- سحب أيقونة الشات وتحريكها ----------
-  var FAB = 56, MARGIN = 10, dragEndTs = 0, fabPos = null;
-  function clampN(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  function posKey() { return 'lc_fab_pos_' + ((cfg && cfg.role) || 'x'); }
-  function loadPos() {
-    try {
-      var p = JSON.parse(localStorage.getItem(posKey()));
-      if (p && (p.side === 'l' || p.side === 'r') && typeof p.y === 'number') return p;
-    } catch (e) {}
-    return { side: 'l', y: 1 };   // الوضع الافتراضي: أسفل اليسار
-  }
-  function savePos() { try { localStorage.setItem(posKey(), JSON.stringify(fabPos)); } catch (e) {} }
-
-  // مكان نافذة الشات بجوار الأيقونة (على الجوال تبقى كورقة سفلية بالـCSS)
-  function placePanel() {
-    var p = els.panel, f = els.fab;
-    if (!p || !f) return;
-    var vw = window.innerWidth, vh = window.innerHeight;
-    if (vw <= 600) {
-      p.style.left = p.style.right = p.style.top = p.style.bottom = p.style.height = p.style.maxHeight = '';
-      return;
-    }
-    var fl = parseFloat(f.style.left) || MARGIN, ft = parseFloat(f.style.top) || MARGIN;
-    var W = Math.min(380, vw - 16);
-    var left = fabPos && fabPos.side === 'r' ? fl + FAB - W : fl;
-    p.style.left = clampN(left, 8, vw - W - 8) + 'px';
-    p.style.right = 'auto';
-    var above = ft - 16, below = vh - (ft + FAB) - 16;
-    if (above >= below) {
-      p.style.top = 'auto';
-      p.style.bottom = (vh - ft + 8) + 'px';
-      p.style.height = Math.min(540, above) + 'px';
-    } else {
-      p.style.bottom = 'auto';
-      p.style.top = (ft + FAB + 8) + 'px';
-      p.style.height = Math.min(540, below) + 'px';
-    }
-    p.style.maxHeight = 'none';
-  }
-
-  function applyFab() {
-    var f = els.fab;
-    if (!f || !fabPos) return;
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var top = clampN(Math.round(fabPos.y * (vh - FAB - 2 * MARGIN)) + MARGIN, MARGIN, vh - FAB - MARGIN);
-    f.style.left = (fabPos.side === 'l' ? MARGIN : vw - FAB - MARGIN) + 'px';
-    f.style.top = top + 'px';
-    f.style.right = 'auto';
-    f.style.bottom = 'auto';
-    placePanel();
-  }
-
-  function initDrag(fab) {
-    fabPos = loadPos();
-    applyFab();
-    window.addEventListener('resize', applyFab);
-
-    var down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;
-
-    fab.addEventListener('pointerdown', function (e) {
-      if (e.button) return;
-      down = true; moved = false; pid = e.pointerId;
-      sx = e.clientX; sy = e.clientY;
-      ox = parseFloat(fab.style.left) || 0; oy = parseFloat(fab.style.top) || 0;
-      fab.classList.remove('lc-snap');
-      try { fab.setPointerCapture(pid); } catch (err) {}
-    });
-    fab.addEventListener('pointermove', function (e) {
-      if (!down) return;
-      var dx = e.clientX - sx, dy = e.clientY - sy;
-      if (!moved && Math.sqrt(dx * dx + dy * dy) < 6) return;   // أقل من 6px = نقرة عادية
-      moved = true;
-      fab.classList.add('lc-dragging');
-      var vw = window.innerWidth, vh = window.innerHeight;
-      fab.style.left = clampN(ox + dx, MARGIN, vw - FAB - MARGIN) + 'px';
-      fab.style.top = clampN(oy + dy, MARGIN, vh - FAB - MARGIN) + 'px';
-      fabPos = { side: (parseFloat(fab.style.left) + FAB / 2) < vw / 2 ? 'l' : 'r', y: fabPos.y };
-      placePanel();
-    });
-    function end() {
-      if (!down) return;
-      down = false;
-      try { fab.releasePointerCapture(pid); } catch (err) {}
-      fab.classList.remove('lc-dragging');
-      if (!moved) return;
-      dragEndTs = Date.now();                          // لمنع فتح الشات بعد السحب
-      var vw = window.innerWidth, vh = window.innerHeight;
-      var cx = (parseFloat(fab.style.left) || 0) + FAB / 2;
-      var top = parseFloat(fab.style.top) || MARGIN;
-      fabPos = { side: cx < vw / 2 ? 'l' : 'r', y: clampN((top - MARGIN) / Math.max(1, vh - FAB - 2 * MARGIN), 0, 1) };
-      fab.classList.add('lc-snap');                    // تثبيت ناعم على أقرب حافة
-      applyFab();
-      savePos();
-    }
-    fab.addEventListener('pointerup', end);
-    fab.addEventListener('pointercancel', end);
   }
 
   function ensureUI() {
@@ -247,7 +173,7 @@
     panel.hidden = true;
     panel.innerHTML =
       '<div class="lc-head">' +
-        '<div class="lc-title">💬 الشات المباشر<span class="lc-conn"></span></div>' +
+        '<div class="lc-title"><span><span class="lc-grip">⋮⋮</span>💬 الشات المباشر</span><span class="lc-conn"></span></div>' +
         '<div><button type="button" class="lc-iconbtn lc-btn-name" title="تغيير الاسم">👤</button>' +
         '<button type="button" class="lc-iconbtn lc-btn-close" title="إغلاق">✕</button></div>' +
       '</div>' +
@@ -280,11 +206,10 @@
       nameList: panel.querySelector('#lcNameList'), toast: toast
     };
 
-    fab.addEventListener('click', function () {
-      if (Date.now() - dragEndTs < 350) return;   // كان سحباً وليس نقراً
-      isOpen ? closePanel() : openPanel();
-    });
-    initDrag(fab);
+    restorePos(fab, 'fab');
+    makeDraggable(fab, fab, 'fab', function () { isOpen ? closePanel() : openPanel(); });
+    makeDraggable(panel, panel.querySelector('.lc-head'), 'panel', null);
+    window.addEventListener('resize', keepOnScreen);
     panel.querySelector('.lc-btn-close').addEventListener('click', closePanel);
     panel.querySelector('.lc-btn-name').addEventListener('click', function () {
       if (cfg.role === 'admin') { showNote('اسمك في الشات يظهر تلقائياً من حساب المشرف'); return; }
@@ -311,6 +236,68 @@
       if (d) deleteMessage(parseInt(d.getAttribute('data-id'), 10));
     });
     toast.addEventListener('click', function () { openPanel(); });
+  }
+
+  // ---------- النافذة العائمة (سحب بالماوس أو اللمس) ----------
+  var POS_KEY = 'lc_pos_';
+  function placeAt(el, x, y) {
+    var w = el.offsetWidth, h = el.offsetHeight;
+    x = Math.min(Math.max(0, x), Math.max(0, window.innerWidth - w));
+    y = Math.min(Math.max(0, y), Math.max(0, window.innerHeight - h));
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.right = 'auto'; el.style.bottom = 'auto';
+  }
+  function restorePos(el, key) {
+    try {
+      var v = JSON.parse(localStorage.getItem(POS_KEY + key) || 'null');
+      if (v && typeof v.x === 'number') { placeAt(el, v.x, v.y); return true; }
+    } catch (e) {}
+    return false;
+  }
+  function defaultPanelPos() {
+    // فوق زر الشات وعلى نفس جهته
+    var f = els.fab.getBoundingClientRect();
+    var y = f.top - els.panel.offsetHeight - 12;
+    if (y < 8) y = Math.min(f.bottom + 12, window.innerHeight - els.panel.offsetHeight);
+    placeAt(els.panel, f.left, y);
+  }
+  function makeDraggable(el, handle, key, onTap) {
+    var sx, sy, ox, oy, moved = false, down = false, pid = null;
+    handle.addEventListener('pointerdown', function (e) {
+      if (e.button != null && e.button !== 0) return;
+      if (handle !== el && e.target.closest && e.target.closest('button')) return; // أزرار الهيدر لا تسحب
+      var r = el.getBoundingClientRect();
+      down = true; moved = false; pid = e.pointerId;
+      sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      try { handle.setPointerCapture(pid); } catch (er) {}
+    });
+    handle.addEventListener('pointermove', function (e) {
+      if (!down || e.pointerId !== pid) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+      moved = true;
+      handle.classList.add('drag');
+      placeAt(el, ox + dx, oy + dy);
+      e.preventDefault();
+    });
+    function end(e) {
+      if (!down || e.pointerId !== pid) return;
+      down = false; handle.classList.remove('drag');
+      try { handle.releasePointerCapture(pid); } catch (er) {}
+      if (moved) {
+        var r = el.getBoundingClientRect();
+        try { localStorage.setItem(POS_KEY + key, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })); } catch (er) {}
+      } else if (onTap) { onTap(); }
+    }
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+  function keepOnScreen() {
+    [els.fab, els.panel].forEach(function (el) {
+      if (el.style.top && !el.hidden && el.style.display !== 'none') {
+        placeAt(el, parseFloat(el.style.left) || 0, parseFloat(el.style.top) || 0);
+      }
+    });
   }
 
   function autosize() {
@@ -363,6 +350,15 @@
     }
   }
 
+  function senderHtml(m) {
+    var p = parseSender(m.sender);
+    var badges = '';
+    if (m.role === 'admin') badges += '<span class="lc-role">مشرف</span>';
+    else if (p.role) badges += '<span class="lc-role">' + esc(p.role) + '</span>';
+    if (p.cls) badges += '<span class="lc-cls">🏫 ' + esc(p.cls) + '</span>';
+    return '<div class="lc-sender">' + (m.role === 'admin' ? '🛡️ ' : '') + esc(p.name) + badges + '</div>';
+  }
+
   function renderMsgs(forceScroll) {
     var list = store[active] || [];
     var box = els.msgs;
@@ -373,7 +369,7 @@
       if (dk !== lastDay) { lastDay = dk; html += '<div class="lc-day">' + esc(dayLabel(m.created_at)) + '</div>'; }
       var mine = isMine(m);
       html += '<div class="lc-row' + (mine ? ' mine' : '') + '"><div class="lc-bubble' + (m.role === 'admin' ? ' admin' : '') + '">' +
-        (mine ? '' : '<div class="lc-sender">' + (m.role === 'admin' ? '🛡️ ' : '') + esc(m.sender) + '</div>') +
+        (mine ? '' : senderHtml(m)) +
         '<div class="lc-text">' + esc(m.body) + '</div>' +
         '<div class="lc-time">' + hhmm(m.created_at) +
         (cfg.role === 'admin' ? ' <button type="button" class="lc-del" data-id="' + m.id + '" title="حذف">🗑</button>' : '') +
@@ -408,7 +404,7 @@
     if (!roomsList().length) return;
     isOpen = true;
     els.panel.hidden = false;
-    placePanel();
+    if (!restorePos(els.panel, 'panel')) defaultPanelPos();
     els.toast.classList.remove('show');
     if (!active) active = roomsList()[0].id;
     // لو فيه رسائل جديدة في غرفة أخرى نفتح عليها مباشرة
@@ -523,12 +519,14 @@
     return r ? r.label : '';
   }
   function showToastIncoming(m) {
-    var txt = '💬 ' + m.sender + ': ' + String(m.body).slice(0, 60);
+    var sp = parseSender(m.sender);
+    var txt = '💬 ' + sp.name + (sp.cls ? ' (' + (sp.role ? sp.role + ' - ' : '') + sp.cls + ')' : '') + ': ' + String(m.body).slice(0, 60);
     showToast(txt);
   }
   function browserNotify(m) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    var title = '💬 ' + m.sender + (roomLabel(m.room) ? ' — ' + roomLabel(m.room) : '');
+    var sp = parseSender(m.sender);
+    var title = '💬 ' + sp.name + (sp.cls ? ' (' + (sp.role ? sp.role + ' - ' : '') + sp.cls + ')' : '') + (roomLabel(m.room) ? ' — ' + roomLabel(m.room) : '');
     var opts = { body: String(m.body).slice(0, 120), tag: 'lc-' + m.room, dir: 'rtl', lang: 'ar', icon: './icons/icon-192.png', renotify: true };
     try {
       if ('serviceWorker' in navigator) {
@@ -576,7 +574,7 @@
     });
   }
   function poll() {
-    if (!client || !initDone) return;
+    if (!client || !initDone || document.hidden) return;   // لا استعلام والتطبيق في الخلفية
     if (cfg.watchAll) { if (!rtOk.all) pollQuery(null); }
     else roomsList().forEach(function (r) { if (!rtOk[r.id]) pollQuery(r.id); });
   }
@@ -615,7 +613,7 @@
     if (!name) { showNameBox(); return; }
     els.send.disabled = true;
     client.from('chat_messages')
-      .insert({ room: active, sender: name, role: cfg.role, body: body.slice(0, 1000) })
+      .insert({ room: active, sender: senderValue(), role: cfg.role, body: body.slice(0, 1000) })
       .select().single()
       .then(function (r) {
         els.send.disabled = false;

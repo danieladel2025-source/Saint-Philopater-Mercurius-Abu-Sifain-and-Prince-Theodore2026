@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>لوحة المشرفين — كنيسة أبي سيفين والأمير تادرس - طنطا</title>
+<title>لوحة المشرفين — كنيسة أبي سيفين والأمير تادرس بطنطا</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./live-chat.js"></script>
+<script src="./push-client.js"></script>
 <style>
   :root {
     --ink: #0d1117;
@@ -21,7 +22,10 @@
     --shadow: rgba(13,17,23,0.14);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; overflow-x:hidden; }
+  img, video { max-width:100%; }
   body {
+    max-width:100vw; overflow-x:hidden;
     font-family:'Cairo', sans-serif;
     background: var(--paper);
     color: var(--ink);
@@ -127,7 +131,7 @@
     box-shadow:0 2px 8px var(--shadow);
   }
 
-  .class-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(270px,1fr)); gap:16px; }
+  .class-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(270px,100%),1fr)); gap:16px; }
   .class-card {
     background:#fff; border:1px solid var(--cream); border-top:4px solid var(--accent2);
     border-radius:12px; padding:18px; box-shadow:0 4px 12px var(--shadow);
@@ -260,93 +264,53 @@
   .gsearch-result .name { font-weight:900; font-size:14px; }
   .gsearch-result .cls { font-size:12px; color:#999; }
 
-  /* ===== التجاوب مع الهاتف والأجهزة اللوحية (متوافق مع باقي الصفحات: 600px / 480px) ===== */
-  html { -webkit-text-size-adjust:100%; }
-  @media (max-width:900px) {
-    .container { padding:18px 14px 70px; }
-    .header { padding:14px 18px; }
-  }
-  @media (max-width:600px) {
-    body { overflow-x:hidden; }
-    #loginScreen { min-height:100vh; min-height:100dvh; padding:14px; }
-    .login-card { padding:28px 20px 24px; }
-    input, select, textarea { font-size:16px !important; }          /* يمنع تكبير iOS التلقائي عند الكتابة */
+  /* ===== توافق الهاتف: منع خروج العناصر عن عرض الشاشة ===== */
+  .header-brand, .header-brand > div:last-child, .detail-head > div:first-child { min-width:0; }
+  .header h1, .detail-head h2 { overflow-wrap:anywhere; }
+  .header-actions, .detail-head > div[style*="display:flex"] { flex-wrap:wrap; }
+  .tabs { overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
+  .tab-btn { white-space:nowrap; flex-shrink:0; }
 
-    /* الهيدر: العنوان فوق، والأزرار في شريط أفقي قابل للتمرير */
-    .header { position:static; padding:12px 12px 10px; padding-top:calc(12px + env(safe-area-inset-top)); gap:10px; }
-    .header-brand { width:100%; gap:10px; }
-    .header-icon { width:38px; height:38px; font-size:18px; border-radius:9px; }
-    .header h1 { font-size:16px; line-height:1.4; }
-    .header-subtitle { font-size:10.5px; word-break:break-all; }
-    .header-actions {
-      width:100%; gap:8px; overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px;
-      -webkit-overflow-scrolling:touch; scrollbar-width:none;
-    }
-    .header-actions::-webkit-scrollbar { display:none; }
-    .header-actions .btn, .header-actions a.btn { flex:0 0 auto; white-space:nowrap; font-size:12px; padding:8px 12px; min-height:38px; }
-
-    .btn { min-height:38px; }
-    .container { padding:12px 10px 90px; }                          /* مساحة أسفل الصفحة كي لا تغطي أيقونة الشات المحتوى */
-
-    .toolbar { gap:8px; margin-bottom:12px; }
-    .search-box { min-width:100%; flex:1 1 100%; padding:10px 14px; }
-    .summary-pill { width:100%; text-align:center; }
-
-    .class-grid { grid-template-columns:1fr; gap:12px; }
-    .class-card { padding:14px; }
-    .class-card:hover { transform:none; }
-
-    /* نوافذ التفاصيل بملء الشاشة */
-    #detailOverlay, #studentOverlay { padding:0; }
-    .detail-modal, .student-modal { max-width:100%; min-height:100vh; min-height:100dvh; border-radius:0; margin-bottom:0; }
-    .detail-head { padding:14px 14px; position:sticky; top:0; z-index:5; }
-    .detail-head h2 { font-size:17px; }
-    .detail-head > div:first-child { flex:1 1 60%; min-width:0; }
-    .detail-head > div[style*="display:flex"] { width:100%; flex-wrap:wrap; }
-    .detail-head > div[style*="display:flex"] .btn { flex:1 1 auto; font-size:12px; padding:8px 10px; }
-    .close-btn { width:38px; height:38px; flex:0 0 auto; }
-
-    .tabs { padding:8px 10px 0; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
-    .tabs::-webkit-scrollbar { display:none; }
-    .tab-btn { flex:0 0 auto; padding:9px 12px; font-size:13px; white-space:nowrap; }
-    .tab-panel { padding:12px 10px 22px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-
-    table.data-table { font-size:12px; min-width:480px; }
-    table.data-table th, table.data-table td { padding:8px 6px; }
-
-    /* بروفايل المخدوم */
-    .stu-row { padding:14px; gap:12px; }
-    .stu-photo, .stu-photo-placeholder { width:72px; height:72px; }
-    .stu-info-grid { min-width:100%; gap:8px 12px; }
-    .stu-stats-row { padding:0 14px 14px; gap:8px; }
-    .stu-stat-card { min-width:calc(50% - 4px); padding:8px 10px; }
-    .stu-log-title { padding:0 14px; }
-    .stu-log-wrap { padding:0 14px 22px; max-height:none; }
-
-    /* إدارة الفصول: الجدول يتحول إلى بطاقات */
-    .chapters-table, .chapters-table tbody, .chapters-table tr, .chapters-table td { display:block; width:100%; }
-    .chapters-table { background:transparent; border-radius:0; }
-    .chapters-table thead { display:none; }
-    .chapters-table tr { background:#fff; border:1px solid var(--cream); border-radius:12px; padding:10px 12px; margin-bottom:10px; box-shadow:0 2px 8px var(--shadow); }
-    .chapters-table td { border:none; padding:3px 0 !important; }
-    .chapters-table td:first-child { font-weight:900; font-size:15px; }
-    .chapters-table td:nth-child(2) { font-size:11.5px; color:#999; }
-    .chapters-table td:nth-child(2)::before { content:'آخر تحديث: '; }
-    .chapters-table td.actions { display:flex; gap:8px; padding-top:8px !important; white-space:normal; }
-    .chapters-table td.actions .btn { flex:1; }
-
-    .pastoral-card, .gsearch-result { padding:12px 14px; }
-
-    /* نوافذ التعديل كورقة سفلية */
-    #chapterEditOverlay { align-items:flex-end; padding:0; }
-    .chapter-edit-modal { max-width:100%; border-radius:16px 16px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
-
-    .toast { bottom:84px; max-width:92vw; text-align:center; padding:10px 16px; }
-  }
-  @media (max-width:480px) {
+  @media (max-width: 768px) {
+    .header { padding:12px 14px; }
     .header h1 { font-size:15px; }
-    .stu-info-grid { grid-template-columns:1fr 1fr; }
-    .class-card h3 { font-size:15px; }
+    .header-brand { width:100%; }
+    .header-actions { width:100%; gap:6px; }
+    .header-actions .btn { flex:1 1 calc(50% - 6px); padding:8px 6px; font-size:12px; text-align:center; justify-content:center; }
+    .container { padding:14px 12px 50px; }
+    .toolbar { gap:8px; }
+    .search-box { min-width:0; width:100%; flex:1 1 100%; }
+    .summary-pill { width:100%; text-align:center; }
+    .class-grid { grid-template-columns:1fr; }
+
+    #detailOverlay, #studentOverlay { padding:10px 8px; }
+    .detail-head { padding:14px; }
+    .detail-head > div[style*="display:flex"] { width:100%; }
+    .detail-head .btn { flex:1 1 auto; padding:8px 10px; font-size:12px; }
+    .tabs { padding:10px 10px 0; }
+    .tab-btn { padding:9px 12px; font-size:13px; }
+    .tab-panel { padding:14px 10px 20px; }
+
+    /* الجداول: تمرير أفقي داخل الجدول بدل توسيع الصفحة */
+    table.data-table, .chapters-table { display:block; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table.data-table th, table.data-table td { padding:8px 8px; }
+    .chapters-table th, .chapters-table td { padding:9px 8px; font-size:12.5px; }
+
+    .stu-row { padding:14px; gap:12px; }
+    .stu-info-grid { min-width:0; width:100%; }
+    .stu-stats-row { padding:0 14px 14px; }
+    .stu-stat-card { min-width:80px; padding:8px; }
+    .stu-log-title { padding:0 14px; }
+    .stu-log-wrap { padding:0 14px 18px; }
+
+    .login-card { padding:28px 20px 24px; }
+    .chapter-edit-modal { padding:16px; }
+    .toast { max-width:92vw; text-align:center; }
+  }
+
+  @media (max-width: 400px) {
+    .header-actions .btn { flex:1 1 100%; }
+    .stu-info-grid { grid-template-columns:1fr; }
   }
 </style>
 </head>
@@ -357,7 +321,7 @@
   <div class="login-card">
     <div class="seal">🕊️</div>
     <div class="login-title">لوحة المشرفين</div>
-    <div class="login-sub">كنيسة أبي سيفين والأمير تادرس - طنطا</div>
+    <div class="login-sub">كنيسة أبي سيفين والأمير تادرس بطنطا</div>
     <div class="login-error" id="loginError"></div>
     <div class="field">
       <label>البريد الإلكتروني</label>
@@ -512,6 +476,7 @@
     await sb.auth.signOut();
     document.getElementById('dashScreen').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
+    window._adminEmail = '';
     document.getElementById('loginEmail').value = '';
     document.getElementById('loginPassword').value = '';
   }
@@ -541,26 +506,9 @@
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('dashScreen').style.display = 'block';
     document.getElementById('userEmailLabel').textContent = 'مسجل الدخول: ' + (user.email || '');
+    window._adminEmail = user.email || '';
     showView('classes');
     loadAllClasses();
-    startAdminChat(user);
-  }
-
-  // ===== الشات المباشر للمشرفين: كل الفصول + غرفة عامة =====
-  function startAdminChat(user) {
-    const who = 'مشرف ' + String((user && user.email) || '').split('@')[0];
-    LiveChat.init({
-      role: 'admin',
-      watchAll: true,
-      getClient: () => sb,
-      getIdentity: () => ({ name: who }),
-      getRooms: () => [{ id: 'general', label: '📢 عام' }].concat(
-        (typeof allClasses !== 'undefined' ? allClasses : []).map(c => ({
-          id: LiveChat.roomFor(c.class_id),
-          label: '🏫 ' + (c.class_name || 'فصل بدون اسم')
-        }))
-      )
-    });
   }
 
   // عند فتح الصفحة، تحقق هل يوجد جلسة دخول محفوظة
@@ -1109,6 +1057,31 @@
   function closeStudentModal() {
     document.getElementById('studentOverlay').style.display = 'none';
   }
+</script>
+<script>
+  // ===== 💬 الشات المباشر (للمشرفين) — يرى كل الغرف ويستطيع حذف الرسائل =====
+  LiveChat.init({
+    role: 'admin',
+    watchAll: true,
+    getClient: function () { return window._adminEmail ? sb : null; },
+    getIdentity: function () { return { name: 'مشرف' }; },
+    getRooms: function () {
+      if (!window._adminEmail) return [];
+      var rooms = [{ id: 'general', label: 'عام' }];
+      (allClasses || []).forEach(function (c) {
+        rooms.push({ id: LiveChat.roomFor(c.class_id), label: c.class_name || 'بدون اسم' });
+      });
+      return rooms;
+    }
+  });
+</script>
+<script>
+  // ===== 🔔 إشعارات حقيقية للمشرفين (رسائل كل الغرف) والتطبيق مغلق =====
+  PushClient.init({
+    role: 'admin',
+    getClient: function () { return window._adminEmail ? sb : null; },
+    getName: function () { return 'مشرف'; }
+  });
 </script>
 </body>
 </html>
