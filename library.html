@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>المكتبة الروحية — كنيسة أبي سيفين والأمير تادرس بطنطا</title>
+<title>المكتبة الروحية — كنيسة الشهيدين العظيمين أبي سيفين والأمير تادرس - طنطا</title>
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -204,7 +204,7 @@
     <div class="header-icon">📚</div>
     <div>
       <h1 id="libTitle">المكتبة الروحية</h1>
-      <div class="header-subtitle" id="libSubtitle">كنيسة أبي سيفين والأمير تادرس بطنطا</div>
+      <div class="header-subtitle" id="libSubtitle">كنيسة الشهيدين العظيمين أبي سيفين والأمير تادرس — طنطا</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
@@ -890,7 +890,7 @@ function renderGenderChooser() {
 document.addEventListener('DOMContentLoaded', () => {
   if (!GENDER) { renderGenderChooser(); return; }
   document.body.classList.add(GENDER);
-  document.title = GENDER_LABEL + ' — كنيسة أبي سيفين والأمير تادرس بطنطا';
+  document.title = GENDER_LABEL + ' — كنيسة الشهيدين العظيمين أبي سيفين والأمير تادرس - طنطا';
   document.getElementById('libTitle').textContent = (GENDER === 'girls' ? '👧 ' : '👦 ') + GENDER_LABEL;
   document.getElementById('switchGenderLink').style.display = 'inline-flex';
   checkSupabaseConnection();

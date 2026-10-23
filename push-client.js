@@ -17,11 +17,7 @@
   'use strict';
 
   var FN = 'push-notify';
-  // المفتاح يُحفظ لكل مشروع Supabase على حدة (حتى لا يبقى مفتاح المشروع القديم بعد تغيير القاعدة)
-  var KEY_CACHE = 'push_vapid_pub_v2_' + (function () {
-    try { return String(typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '').replace(/[^a-z0-9]/gi, '').slice(-24); } catch (e) { return ''; }
-  })();
-  try { localStorage.removeItem('push_vapid_pub_v1'); } catch (e) {}
+  var KEY_CACHE = 'push_vapid_pub_v1';
   var cfg = null;
   var st = { status: 'idle', busy: false, sig: '', fails: 0, nextTry: 0, endpoint: '' };
 
@@ -35,13 +31,6 @@
     var out = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
     return out;
-  }
-  // تنظيف المفتاح: إزالة المسافات والأسطر وعلامات الاقتباس والبادئة، وتحويله لصيغة base64url
-  function cleanKey(k) {
-    return String(k || '').replace(/^\s*["']|["']\s*$/g, '').replace(/\s+/g, '').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
-  }
-  function validKeyBytes(k) {
-    try { var b = b64ToBytes(k); return (b.length === 65 && b[0] === 4) ? b : null; } catch (e) { return null; }
   }
   function sameKey(buf, bytes) {
     if (!buf) return false;
@@ -67,14 +56,11 @@
   function getVapidKey(c) {
     var cached = '';
     try { cached = localStorage.getItem(KEY_CACHE) || ''; } catch (e) {}
-    cached = cleanKey(cached);
-    if (cached && validKeyBytes(cached)) return Promise.resolve(cached);
-    try { localStorage.removeItem(KEY_CACHE); } catch (e) {}
+    if (cached) return Promise.resolve(cached);
     return c.functions.invoke(FN, { body: { mode: 'key' } }).then(function (r) {
-      var k = cleanKey(r && r.data && r.data.key);
+      var k = r && r.data && r.data.key;
       if (r && r.error) throw r.error;
       if (!k) throw new Error('لم تُضبط مفاتيح VAPID في الدالة');
-      if (!validKeyBytes(k)) throw new Error('VAPID_PUBLIC_KEY غير صالح في Secrets الدالة (يجب أن يكون المفتاح العام الناتج من web-push، طوله 87 حرفًا)');
       try { localStorage.setItem(KEY_CACHE, k); } catch (e) {}
       return k;
     });
@@ -136,8 +122,7 @@
     st.busy = true;
     return getRegistration().then(function (reg) {
       return getVapidKey(c).then(function (pub) {
-        var bytes = validKeyBytes(pub);
-        if (!bytes) { try { localStorage.removeItem(KEY_CACHE); } catch (e) {} throw new Error('مفتاح VAPID غير صالح'); }
+        var bytes = b64ToBytes(pub);
         return reg.pushManager.getSubscription().then(function (sub) {
           // مفتاح السيرفر تغيّر → اشتراك قديم لن يعمل
           if (sub && sub.options && sub.options.applicationServerKey && !sameKey(sub.options.applicationServerKey, bytes)) {
