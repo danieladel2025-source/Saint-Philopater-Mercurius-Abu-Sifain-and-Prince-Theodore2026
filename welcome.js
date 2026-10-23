@@ -240,6 +240,7 @@
       '#wgServModal .wgs-chip.boys{background:#e3f1fb;color:#1f6fa5}#wgServModal .wgs-chip.girls{background:#fde4ef;color:#a3134f}',
       '#wgServModal .wgs-b{border:none;border-radius:9px;padding:7px 12px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;',
       ' background:#0d1117;color:#fff}#wgServModal .wgs-b.g{background:#1a7a4a}#wgServModal .wgs-b.l{background:#ddd;color:#333}',
+      '#wgServModal .wgs-b.d{background:#c8392b}#wgServModal .wgs-b:disabled{opacity:.6;cursor:default}',
       '#wgServModal .wgs-ref{margin-top:8px;border:2px solid var(--line,#b5a98a);background:transparent;border-radius:10px;padding:10px;',
       ' font-family:inherit;font-weight:800;font-size:14px;cursor:pointer}',
       '#wgServModal .wgs-msg{padding:18px 8px;text-align:center;color:#666;line-height:1.8}',
@@ -628,7 +629,8 @@
           '<button type="button" class="wgs-b l" data-act="cancel">إلغاء</button></div></div>';
       } else {
         html += '<div class="wgs-item"><div class="wgs-row"><div class="wgs-nm">' + esc(it.name) + '</div>' +
-          '<button type="button" class="wgs-b" data-act="edit" data-i="' + i + '">✏️ تعديل</button></div>' +
+          '<button type="button" class="wgs-b" data-act="edit" data-i="' + i + '">✏️ تعديل</button>' +
+          '<button type="button" class="wgs-b d" data-act="del" data-i="' + i + '">🗑️ حذف</button></div>' +
           '<div class="wgs-meta"><span class="wgs-chip">📚 ' + esc(sStage(it.stage)) + '</span>' +
           '<span class="wgs-chip ' + (it.gender === 'girls' ? 'girls' : 'boys') + '">' + (it.gender === 'girls' ? '👧 ' : '👦 ') + sGender(it.gender) + '</span>' +
           (date ? '<span>سُجّل: ' + esc(date) + '</span>' : '') + '</div></div>';
@@ -649,6 +651,7 @@
     var act = b.getAttribute('data-act'), i = parseInt(b.getAttribute('data-i'), 10);
     if (act === 'edit') { servEdit = i; renderServants(); return; }
     if (act === 'cancel') { servEdit = -1; renderServants(); return; }
+    if (act === 'del') { deleteServantAccount(i, b); return; }
     if (act !== 'save') return;
     var it = servList[i], c = adminClient();
     var name = $('wgsEName').value.trim().replace(/\s+/g, ' ');
@@ -675,6 +678,46 @@
     servEdit = -1;
     renderServants();
     if (typeof showToast === 'function') { try { showToast('✅ تم تعديل بيانات ' + name + ' — تظهر على جهازه عند فتح التطبيق'); } catch (x) {} }
+  }
+
+  // المشرف العام: حذف تسجيل خادم نهائياً من السيرفر.
+  // عند فتح الخادم للتطبيق يكتشف الحذف (servant_removed) فيبدأ من صفحة الترحيب من جديد.
+  // لا يمسّ بيانات المخدومين ولا قوائم الخدام داخل الفصول.
+  async function deleteServantAccount(i, btn) {
+    if (role() !== 'admin') return;
+    var it = servList[i], c = adminClient();
+    if (!it || !c) return;
+    if (!confirm('🗑️ حذف الخادم «' + it.name + '»؟\n\n' +
+      '• يُمسح تسجيله من السيرفر نهائياً.\n' +
+      '• عند فتحه التطبيق يعود لصفحة الترحيب ليسجّل من جديد.\n' +
+      '• لا تتأثر بيانات المخدومين ولا قوائم الفصول.\n\n' +
+      'هل أنت متأكد؟')) return;
+    var oldTxt = btn.textContent;
+    btn.disabled = true; btn.textContent = 'جاري الحذف...';
+    var gone = true;
+    try {
+      var r = await c.rpc('admin_delete_servant', { p_device: it.device_id });
+      if (r.error) {
+        btn.disabled = false; btn.textContent = oldTxt;
+        return alert(missingFn(r.error)
+          ? 'شغّل ملف admin_delete_servant.sql على Supabase أولاً.'
+          : 'تعذر الحذف: ' + (r.error.message || '') + '\nجرّب تسجيل الخروج ثم الدخول كمشرف من جديد.');
+      }
+      gone = (r.data === true);   // false = كان محذوفاً بالفعل (من جهاز آخر)
+    } catch (err) {
+      btn.disabled = false; btn.textContent = oldTxt;
+      return alert('تعذر الاتصال بالسيرفر — تحقق من الإنترنت.');
+    }
+    servList.splice(i, 1);
+    servEdit = -1;
+    if (it.device_id === deviceId()) {      // حذف تسجيل هذا الجهاز نفسه
+      profile = null;
+      try { localStorage.removeItem(PROFILE_KEY); } catch (x) {}
+    }
+    renderServants();
+    if (typeof showToast === 'function') {
+      try { showToast(gone ? '🗑️ تم حذف الخادم ' + it.name : 'ℹ️ الخادم ' + it.name + ' كان محذوفاً بالفعل'); } catch (x) {}
+    }
   }
 
   function initialOf(name) {
