@@ -2418,7 +2418,8 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-right:auto;">
         <button class="btn" style="background:#1a7a4a;color:white;font-size:13px;padding:8px 14px;" onclick="openImportExcelModal()">📥 استيراد من Excel</button>
         <button class="btn" style="background:#4c1d95;color:white;font-size:13px;padding:8px 14px;" onclick="openArchiveYearModal()">📦 أرشفة وبدء سنة جديدة</button>
-        <button class="btn admin-only-del" style="background:#c8392b;color:white;font-size:13px;padding:8px 14px;" onclick="deleteAllPeople()">🗑️ حذف جميع المخدومين والخدام</button>
+        <button class="btn" style="background:#e11d48;color:white;font-size:13px;padding:8px 14px;" onclick="openDeleteOneStudent()">🗑️ حذف مخدوم معين</button>
+        <button class="btn" style="background:#c8392b;color:white;font-size:13px;padding:8px 14px;" onclick="deleteAllPeople()">🗑️ حذف جميع المخدومين والخدام</button>
         <button class="btn" style="background:#7f1d1d;color:white;font-size:13px;padding:8px 14px;" onclick="deleteAllAttendanceRecords()">🗑️ حذف جميع سجلات الغياب</button>
       </div>
     </div>
@@ -2562,6 +2563,7 @@
         <option value="followup">الافتقاد فقط</option>
         <option value="delete">الحذف فقط</option>
       </select>
+      <button type="button" class="admin-only-del" onclick="clearActivityLog()" style="font-family:Cairo,sans-serif;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #c8392b;border-radius:8px;background:#fff;color:#c8392b;cursor:pointer;">🧹 مسح السجل</button>
     </div>
     <div class="activity-list" id="activityList"></div>
   </div>
@@ -2901,9 +2903,63 @@
     return false;
   }
 
-  function deleteAllPeople() {
+  // حذف المخدومين: متاح لخدام الفصل والمشرف العام — بكلمة سر = اسم الفصل (تُطلب في كل مرة)
+  function requireDeletePassword() {
+    const entered = prompt('🔐 أدخل كلمة السر (اسم الفصل كما هو في التعديل) لتأكيد الحذف:');
+    if (entered === null) return false;
+    const correct = getRecordsPassword();
+    if (!correct || entered.trim() !== correct) {
+      alert('❌ كلمة السر غير صحيحة');
+      return false;
+    }
+    return true;
+  }
+
+  // نافذة اختيار مخدوم معين للحذف (من قسم الإدارة)
+  function openDeleteOneStudent() {
+    if (!students.length) { alert('لا يوجد مخدومين لحذفهم'); return; }
+    let ov = document.getElementById('delOneOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'delOneOverlay';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:380px;direction:rtl;font-family:Cairo,sans-serif;">' +
+        '<div style="font-weight:900;font-size:16px;margin-bottom:12px;">🗑️ حذف مخدوم معين</div>' +
+        '<select id="delOneSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:9px;font-family:Cairo,sans-serif;font-size:14px;"></select>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;">' +
+        '<button type="button" onclick="confirmDeleteOneStudent()" style="flex:1;padding:10px;border:none;border-radius:9px;background:#c8392b;color:#fff;font-family:Cairo,sans-serif;font-weight:800;cursor:pointer;">حذف</button>' +
+        '<button type="button" onclick="closeDeleteOneStudent()" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:9px;background:#fff;font-family:Cairo,sans-serif;font-weight:700;cursor:pointer;">إلغاء</button>' +
+        '</div></div>';
+      document.body.appendChild(ov);
+    }
+    document.getElementById('delOneSelect').innerHTML = students.slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'))
+      .map(x => '<option value="' + _esc(x.id) + '">' + _esc(x.name) + '</option>').join('');
+    ov.style.display = 'flex';
+  }
+  function closeDeleteOneStudent() {
+    const ov = document.getElementById('delOneOverlay');
+    if (ov) ov.style.display = 'none';
+  }
+  function confirmDeleteOneStudent() {
+    const sel = document.getElementById('delOneSelect');
+    if (!sel || !sel.value) return;
+    const id = sel.value;
+    closeDeleteOneStudent();
+    deleteStudent(id);
+  }
+
+  // مسح سجل النشاط — للمشرف العام فقط
+  function clearActivityLog() {
     if (!requireAdminDelete()) return;
-    if (!checkRecordsPassword()) return;
+    if (!confirm('⚠️ سيتم مسح سجل النشاط بالكامل. هل أنت متأكد؟')) return;
+    activityLog = [];
+    save();
+    renderActivityLog();
+  }
+
+  function deleteAllPeople() {
+    if (!requireDeletePassword()) return;
     if (!confirm('⚠️ سيتم حذف جميع المخدومين وجميع الخدام بشكل نهائي. هل أنت متأكد؟')) return;
      if (!confirm('⚠️ تذكر ان تمتلك نسخة احتياطي(Back up )للبيانات قبل الحذف')) return;
     logActivity('delete_all', {});
@@ -5414,7 +5470,7 @@
           <button class="action-btn" title="سجل الحضور والغياب" onclick="openAbsenceHistory('${s.id}')">📅</button>
           <button class="action-btn" title="عرض" onclick="viewStudent('${s.id}')">👁️</button>
           <button class="action-btn" title="تعديل" onclick="openEditModal('${s.id}')">✏️</button>
-          <button class="action-btn admin-only-del" title="حذف" onclick="deleteStudent('${s.id}')">🗑️</button>
+          <button class="action-btn" title="حذف" onclick="deleteStudent('${s.id}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -5833,8 +5889,7 @@
   function editFromView() { closeViewModal(); openEditModal(viewingId); }
 
   function deleteStudent(id) {
-    if (!requireAdminDelete()) return;
-    if (!checkRecordsPassword()) return;
+    if (!requireDeletePassword()) return;
     const s = students.find(x => x.id === id);
     if (!s) return;
     if (!confirm(`هل أنت متأكد من حذف المخدوم "${s.name}"؟`)) return;
