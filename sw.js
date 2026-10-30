@@ -1,5 +1,5 @@
 // ===== Service Worker: نظام تسجيل غياب ومتابعة المخدومين — كنيسة الشهيدين العظيمين أبي سيفين والأمير تادرس - طنطا =====
-const CACHE_VERSION = 'church-attendance-v23'; // رفع الإصدار يجبر الأجهزة على جلب الملفات المُحدّثة
+const CACHE_VERSION = 'church-attendance-v24'; // رفع الإصدار يجبر الأجهزة على جلب الملفات المُحدّثة
 const CACHE_NAME = CACHE_VERSION;
 
 // الملفات الأساسية التي يتم تخزينها مسبقًا (App Shell)
