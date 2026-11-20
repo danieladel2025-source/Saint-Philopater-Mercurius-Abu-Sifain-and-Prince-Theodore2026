@@ -1,5 +1,7 @@
-// ===== Service Worker: نظام تسجيل غياب ومتابعة المخدومين — كنيسة الشهيدين العظيمين أبي سيفين والأمير تادرس - طنطا =====
-const CACHE_VERSION = 'church-attendance-v24'; // رفع الإصدار يجبر الأجهزة على جلب الملفات المُحدّثة
+// ===== Service Worker: نظام تسجيل غياب ومتابعة المخدومين — كنيسة أبي سيفين والأمير تادرس =====
+// اسم الكاش ثابت: لا حاجة لرفع الإصدار يدويًا بعد الآن — ملفات الموقع تُجلب من الشبكة أولًا (فحص بالـ ETag)
+// وتُجدَّد نسخ العمل بدون إنترنت تلقائيًا عند كل فتح (REFRESH_CACHE) وعند تفعيل أي نسخة جديدة من هذا الملف.
+const CACHE_VERSION = 'church-attendance-auto-v2';
 const CACHE_NAME = CACHE_VERSION;
 
 // الملفات الأساسية التي يتم تخزينها مسبقًا (App Shell)
@@ -7,12 +9,22 @@ const PRECACHE_URLS = [
   './',
   './index.html',
   './admin.html',
+  './support.html',
+  './church-servants.html',
   './library.html',
   './qr-map.js',
   './qr-map.css',
+  './mobile-fit.css',
   './lesson-reminder.js',
   './live-chat.js',
   './welcome.js',
+  './auto-update.js',
+  './guide.html',
+  './curriculum.html',
+  './sol-features.js',
+  './sol-awards.js',
+  './followup-map.js',
+  './auto-refresh.js',
   './push-client.js',
   './manifest.json',
   './icons/icon-72.png',
@@ -23,21 +35,59 @@ const PRECACHE_URLS = [
   './icons/icon-192.png',
   './icons/icon-384.png',
   './icons/icon-512.png',
+  './icons/icon-180.png',
   './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
-  './icons/church-logo.png'
+  './icons/icon-maskable-512.png'
 ];
+
+// مكتبات ملفات خارجية (CDN) يحتاجها التطبيق ليعمل بدون إنترنت.
+// السبب: وسم <script src="https://cdn..."> بلا crossorigin يعطي رداً "معتماً" (opaque) حالته 0،
+// فلا يُخزَّن أبداً بشرط status === 200 — فكانت مكتبة Supabase والخطوط لا تُحمَّل عند فتح التطبيق بلا إنترنت.
+// الحل: نجلبها نحن بوضع CORS (هذه الخوادم تدعمه) فيصير الرد قابلاً للتخزين.
+const CDN_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const CDN_PRECACHE = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
+  'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4',
+  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0',
+  'https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap'
+];
+
+function fetchCdn(url) {
+  return fetch(url, { mode: 'cors', credentials: 'omit' }).then((res) => {
+    if (res && res.status === 200) {
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(url, copy));
+    }
+    return res;
+  });
+}
+
+// تجديد النسخ المخزّنة للملفات الأساسية من الخادم (تعمل بدون إنترنت لاحقًا وتبقى محدّثة)
+function refreshPrecache() {
+  return caches.open(CACHE_NAME).then((cache) =>
+    Promise.all(PRECACHE_URLS.map((url) =>
+      fetch(url, { cache: 'reload' })
+        .then((res) => { if (res && res.status === 200) return cache.put(url, res); })
+        .catch(() => {})
+    ))
+  );
+}
 
 // ----- التثبيت: تخزين الملفات الأساسية (فشل ملف واحد لا يُفشل التثبيت كله) -----
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) =>
-        Promise.all(
-          PRECACHE_URLS.map((url) =>
+        Promise.all([
+          ...PRECACHE_URLS.map((url) =>
             cache.add(url).catch((err) => console.warn('تعذر تخزين:', url, err))
+          ),
+          ...CDN_PRECACHE.map((url) =>
+            fetchCdn(url).catch((err) => console.warn('تعذر تخزين مكتبة خارجية:', url, err))
           )
-        )
+        ])
       )
       .then(() => self.skipWaiting())
   );
@@ -50,7 +100,7 @@ self.addEventListener('activate', (event) => {
       Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       )
-    ).then(() => self.clients.claim())
+    ).then(() => self.clients.claim()).then(() => refreshPrecache())
   );
 });
 
@@ -70,12 +120,24 @@ self.addEventListener('fetch', (event) => {
   // خرائط جوجل المضمّنة تذهب للشبكة مباشرة
   if (url.hostname === 'google.com' || url.hostname.endsWith('.google.com')) return;
 
+  // مكتبات CDN والخطوط: من الكاش فوراً (تعمل بدون إنترنت) مع تحديث في الخلفية، وإن لم تُخزَّن بعد نجلبها بوضع CORS
+  if (CDN_HOSTS.includes(url.hostname)) {
+    event.respondWith(
+      caches.match(req.url).then((cached) => {
+        const net = fetchCdn(req.url).catch(() => null);
+        if (cached) { event.waitUntil(net); return cached; }
+        return net.then((res) => res || fetch(req)).catch(() => Response.error());
+      })
+    );
+    return;
+  }
+
   // ملفات الموقع نفسه (html/js/css/json): الشبكة أولاً ثم الكاش، لتظهر التحديثات من أول فتح بدل إعادة التحميل عدة مرات
   const isAppFile = url.origin === self.location.origin &&
     (req.mode === 'navigate' || /\.(html|js|css|json)$/i.test(url.pathname));
   if (isAppFile) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' }) // يتحقق من الخادم دائمًا (ETag) فلا يُقدَّم ملف قديم من كاش المتصفح
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
@@ -118,6 +180,11 @@ self.addEventListener('message', (event) => {
 
   if (d.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+
+  if (d.type === 'REFRESH_CACHE') {
+    event.waitUntil(refreshPrecache());
     return;
   }
 
