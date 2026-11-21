@@ -32,8 +32,8 @@
     awsRegion: 'us-east-2',
     awsEndpoint: '', // مخصص إذا كان Cloudflare R2 / MinIO
     // خيارات الضغط
-    maxImageDim: 800,
-    imageQuality: 0.82
+    maxImageDim: 640,
+    imageQuality: 0.72
   };
 
   const STORAGE_KEY = 'sol_cathedral_cloud_storage_v1';

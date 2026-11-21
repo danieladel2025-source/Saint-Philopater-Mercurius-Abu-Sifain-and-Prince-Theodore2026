@@ -3275,7 +3275,7 @@ html.ar-r #splashScreen,html.ar-r-chapter #chapterGate,html.ar-r-dash #loginScre
 
   // ضغط/تصغير الصورة قبل تحويلها إلى Base64 لتفادي امتلاء مساحة التخزين
   // (الصور القادمة من الكاميرا قد تكون 3-10 ميجابايت؛ هذه الدالة تصغّرها لعدة عشرات من الكيلوبايت فقط)
-  function compressImage(file, maxDim = 700, quality = 0.72) {
+  function compressImage(file, maxDim = 560, quality = 0.68) {
     return new Promise((resolve, reject) => {
       if (!file) return reject(new Error('no file'));
       const reader = new FileReader();
@@ -3446,8 +3446,8 @@ html.ar-r #splashScreen,html.ar-r-chapter #chapterGate,html.ar-r-dash #loginScre
   //  إن لم يكن الـ bucket جاهزاً بعد: يبقى كل شيء يعمل كالسابق (تبقى الصورة base64) مع تنبيه.
   // ===================================================
   const PHOTO_BUCKET = 'chapter-photos';
-  const PHOTO_MAX_DIM = 700;
-  const PHOTO_QUALITY = 0.72;
+  const PHOTO_MAX_DIM = 560;
+  const PHOTO_QUALITY = 0.68;
   const PHOTO_REENCODE_ABOVE_CHARS = 550000;   // ≈ 400KB: صور Excel المستوردة الأكبر من ذلك تُصغَّر قبل الرفع
 
   function _isInlinePhoto(v) { return typeof v === 'string' && v.startsWith('data:image/'); }
