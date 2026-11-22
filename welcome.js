@@ -912,6 +912,7 @@
     applyRole();
     if (typeof showToast === 'function') { try { showToast(msg); } catch (e) {} }
     setTimeout(function () { showAnnouncements(true); }, 700);
+    setTimeout(function () { try { if (typeof window.ensureSelfServantInClass === 'function') window.ensureSelfServantInClass(); } catch (e) {} }, 300);
   }
 
   /* ---------------------------- إظهار / إخفاء ---------------------------- */

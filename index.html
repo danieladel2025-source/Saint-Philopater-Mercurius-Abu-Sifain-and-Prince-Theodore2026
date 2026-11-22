@@ -4577,6 +4577,9 @@ html.ar-r #splashScreen,html.ar-r-chapter #chapterGate,html.ar-r-dash #loginScre
       if (typeof setStatus === 'function') setStatus('⟳ جاري نقل الصور إلى التخزين السحابي...', '#2980b9', true);
       scheduleCloudPush();
     }
+
+    // ربط بطاقة الخادم: يُضاف تلقائياً لكشف غياب خدام فصله إن لم يكن موجوداً
+    if (cloudOk) ensureSelfServantInClass();
   }
 
   function updateActiveChapterBadge() {
@@ -7921,6 +7924,46 @@ html.ar-r #splashScreen,html.ar-r-chapter #chapterGate,html.ar-r-dash #loginScre
 
   // =================== SERVANTS MOTOR ENGINE ===================
   function generateServantId() { return 'srv_' + Date.now() + '_' + Math.random().toString(36).substr(2,5); }
+
+  // ===== ربط بطاقة الخادم (تسجيل الجهاز) بكشف غياب الخدام تلقائياً =====
+  // عند فتح الخادم لفصله الذي سجّله في بطاقته: إن لم يكن اسمه في «خدام الفصل» (كشف غياب الخدام)
+  // يُضاف تلقائياً بالاسم والهاتف، فيظهر أيضاً في صفحة «خدام الكنيسة» (التي تقرأ خدام كل فصل).
+  function _svNorm(t) {
+    return String(t || '').replace(/[ً-ْـ]/g, '')
+      .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+      .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  function _svPhone(t) {
+    return String(t || '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\D/g, '').replace(/^(002|2)(?=01)/, '');
+  }
+  function ensureSelfServantInClass() {
+    try {
+      const wg = window.WelcomeGate;
+      if (!wg || typeof wg.profile !== 'function' || wg.role() !== 'servant') return false;   // المشرف العام لا يُضاف
+      const p = wg.profile();
+      if (!p || !p.name || !p.class_name) return false;
+      if (p.role_type === 'assistant' || p.role_type === 'coordinator') return false;           // الأمناء ليسوا من خدام الفصل
+      if (!_cloudReady) return false;                                                           // لا نعدّل قبل قراءة السحابة بنجاح
+      // الفصل المفتوح هو فصله المسجَّل في بطاقته؟
+      const mine = _svNorm(p.class_name);
+      const openNames = [getClassName(), ACTIVE_CHAPTER_NAME].map(_svNorm).filter(Boolean);
+      if (!openNames.includes(mine)) return false;
+
+      const nm = _svNorm(p.name), ph = _svPhone(p.phone);
+      const exists = servants.some(s =>
+        (nm && _svNorm(s.name) === nm) ||
+        (ph.length >= 8 && (_svPhone(s.phone) === ph || _svPhone(s.phone2) === ph)));
+      if (exists) return false;
+
+      servants.push({ sid: generateServantId(), name: p.name, role: 'خادم', phone: p.phone || '', phone2: '', address: '', notes: '', dob: '', photo: null, autoReg: true });
+      save();
+      renderAll();
+      if (typeof showToast === 'function') showToast('✅ تمت إضافتك تلقائياً إلى كشف غياب خدام الفصل');
+      return true;
+    } catch (e) { console.warn('ensureSelfServantInClass', e); return false; }
+  }
+  window.ensureSelfServantInClass = ensureSelfServantInClass;
 
   function handleServantPhoto(event) {
     const file = event.target.files[0];
